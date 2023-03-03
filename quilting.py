@@ -377,7 +377,7 @@ def synth_texture_neighborhood(texture, blk_size, overlap_size):
                     x2 = blk_size
                     top_patch = target[ya:yb, x1:x2]
                     top_block = top_patch[-overlap_size:, :]
-                    top_cost = l2_top_bottom(patch_top=top_patch, patch_bottom=all_blocks)
+                    top_cost = l2_top_bottom(overlap_size, patch_top=top_patch, patch_bottom=all_blocks)
                     best_bottom_patch = select_min_patch(all_blocks, top_cost)
                     best_bottom_block = best_bottom_patch[:overlap_size, :]
 
@@ -399,8 +399,8 @@ def synth_texture_neighborhood(texture, blk_size, overlap_size):
                     left_block = left_patch[:, -overlap_size:]
                     top_block = top_patch[-overlap_size:, :]
 
-                    left_cost = l2_left_right(patch_left=left_patch, patch_right=all_blocks)
-                    top_cost = l2_top_bottom(patch_top=top_patch, patch_bottom=all_blocks)
+                    left_cost = l2_left_right(overlap_size, patch_left=left_patch, patch_right=all_blocks)
+                    top_cost = l2_top_bottom(overlap_size, patch_top=top_patch, patch_bottom=all_blocks)
 
                     best_right_patch = best_bottom_patch = select_min_patch(all_blocks, top_cost + left_cost)
 
