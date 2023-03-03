@@ -359,7 +359,7 @@ def synth_texture_neighborhood(texture, blk_size, overlap_size):
 
                 left_patch = target[y1:y2, xa:xb]
                 left_block = left_patch[:, -overlap_size:]
-                left_cost = l2_left_right(patch_left=left_patch, patch_right=all_blocks)
+                left_cost = l2_left_right(overlap_size, patch_left=left_patch, patch_right=all_blocks)
                 best_right_patch = select_min_patch(all_blocks, left_cost)
 
                 best_right_block = best_right_patch[:, :overlap_size]
