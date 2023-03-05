@@ -11,7 +11,7 @@ def normalize_img(im):
     return img
 
 
-def l2_top_bottom(patch_top, patch_bottom, patch_curr, alpha, all_cm_blocks_target, block_size, overlap_size):
+def l2_top_bottom(block_size, overlap_size, patch_top, patch_bottom, patch_curr, alpha, all_cm_blocks_target):
     block_top = patch_top[-overlap_size:, :]
     maxy = min(block_top.shape[1], block_size)
     if patch_bottom.ndim == 3:
@@ -31,7 +31,7 @@ def l2_top_bottom(patch_top, patch_bottom, patch_curr, alpha, all_cm_blocks_targ
     return top_cost
 
 
-def l2_left_right(patch_left, patch_right, patch_curr, alpha, all_cm_blocks_target, block_size, overlap_size):
+def l2_left_right(block_size, overlap_size, patch_left, patch_right, patch_curr, alpha, all_cm_blocks_target):
     block_left = patch_left[:, -overlap_size:]
 
     if patch_right.ndim == 3:
@@ -73,7 +73,7 @@ def compute_error_surface(block_1, block_2):
 
 
 def min_vert_path(error_surf_vert, block_size):
-    top_min_path = np.zeros(block_size, dtype=np.int)
+    top_min_path = np.zeros(block_size, dtype=int)
     top_min_path[0] = np.argmin(error_surf_vert[0, :], axis=0)
     for i in range(1, block_size):
         err_mid_v = error_surf_vert[i, :]
@@ -95,7 +95,7 @@ def min_vert_path(error_surf_vert, block_size):
 
 
 def min_hor_path(error_surf_hor, block_size):
-    left_min_path = np.zeros(block_size, dtype=np.int)
+    left_min_path = np.zeros(block_size, dtype=int)
     left_min_path[0] = np.argmin(error_surf_hor[:, 0], axis=0)
     for i in range(1, block_size):
         err_mid_h = error_surf_hor[:, i]
@@ -120,7 +120,7 @@ def compute_lr_join(block_left, block_right, block_size, overlap_size, error_sur
     if error_surf_vert is None:
         error_surf_vert = compute_error_surface(block_right, block_left)
 
-    vert_path = min_vert_path(error_surf_vert)
+    vert_path = min_vert_path(error_surf_vert, block_size)
     yy, xx = np.meshgrid(np.arange(block_size), np.arange(overlap_size))
     vert_mask = xx.T <= np.tile(np.expand_dims(vert_path, 1), overlap_size)
 
@@ -135,7 +135,7 @@ def compute_bt_join(block_top, block_bottom, block_size, overlap_size, error_sur
     if error_surf_hor is None:
         error_surf_hor = compute_error_surface(block_bottom, block_top)
 
-    hor_path = min_hor_path(error_surf_hor)
+    hor_path = min_hor_path(error_surf_hor, block_size)
     yy, xx = np.meshgrid(np.arange(block_size), np.arange(overlap_size))
     hor_mask = (xx.T <= np.tile(np.expand_dims(hor_path, 1), overlap_size)).T
 
@@ -162,8 +162,8 @@ def lr_bt_join_double(best_left_block, right_block, best_top_block, bottom_block
     error_surf_vert += vert_contrib
     error_surf_hor += hor_contrib
 
-    left_right_join = compute_lr_join(right_block, best_left_block, error_surf_vert=error_surf_hor)
-    bottom_top_join = compute_bt_join(bottom_block, best_top_block, error_surf_hor=error_surf_vert)
+    left_right_join = compute_lr_join(right_block, best_left_block, block_size, overlap_size, error_surf_vert=error_surf_hor)
+    bottom_top_join = compute_bt_join(bottom_block, best_top_block, block_size, overlap_size, error_surf_hor=error_surf_vert)
 
     return left_right_join, bottom_top_join
 
@@ -232,13 +232,13 @@ def transfer_texture(texture_src, img_target, block_size, overlap_size):
 
                     current_patch = target[y2 - block_size:y2, x_end - block_size:x_end]
 
-                    left_cost = l2_left_right(patch_left=left_patch, patch_right=all_blocks,
+                    left_cost = l2_left_right(block_size, overlap_size, patch_left=left_patch, patch_right=all_blocks,
                                               patch_curr=current_patch, alpha=alpha_i,
                                               all_cm_blocks_target=all_cm_blocks_target)
                     best_right_patch = select_min_patch(all_blocks, left_cost)
                     best_right_block = best_right_patch[:, :osz]
 
-                    left_right_join = compute_lr_join(left_block, best_right_block)
+                    left_right_join = compute_lr_join(left_block, best_right_block, block_size, overlap_size)
                     # join left and right blocks
                     full_join = np.hstack(
                         (target[y1:y2, xa:xb - osz], left_right_join, best_right_patch[:, osz:]))
@@ -254,14 +254,14 @@ def transfer_texture(texture_src, img_target, block_size, overlap_size):
 
                         current_patch = target[y_end - block_size:y_end, x2 - block_size:x2]
 
-                        top_cost = l2_top_bottom(patch_top=top_patch, patch_bottom=all_blocks,
+                        top_cost = l2_top_bottom(block_size, overlap_size, patch_top=top_patch, patch_bottom=all_blocks,
                                                  patch_curr=current_patch, alpha=alpha_i,
                                                  all_cm_blocks_target=all_cm_blocks_target)
                         best_bottom_patch = select_min_patch(all_blocks, top_cost)
                         best_bottom_block = best_bottom_patch[:osz, :]
 
                         # join top and bottom blocks
-                        top_bottom_join = compute_bt_join(top_block, best_bottom_block)
+                        top_bottom_join = compute_bt_join(top_block, best_bottom_block, block_size, overlap_size)
                         full_join = np.vstack(
                             (target[ya:yb - osz, x1:x2], top_bottom_join, best_bottom_patch[osz:, :]))
 
@@ -280,11 +280,11 @@ def transfer_texture(texture_src, img_target, block_size, overlap_size):
 
                         current_patch = target[y2 - block_size:y2, x_end - block_size:x_end]
 
-                        left_cost = l2_left_right(patch_left=left_patch, patch_right=all_blocks,
+                        left_cost = l2_left_right(block_size, overlap_size, patch_left=left_patch, patch_right=all_blocks,
                                                   patch_curr=current_patch, alpha=alpha_i,
                                                   all_cm_blocks_target=all_cm_blocks_target)
 
-                        top_cost = l2_top_bottom(patch_top=top_patch, patch_bottom=all_blocks,
+                        top_cost = l2_top_bottom(block_size, overlap_size, patch_top=top_patch, patch_bottom=all_blocks,
                                                  patch_curr=current_patch, alpha=alpha_i,
                                                  all_cm_blocks_target=all_cm_blocks_target)
 
@@ -294,7 +294,7 @@ def transfer_texture(texture_src, img_target, block_size, overlap_size):
                         best_bottom_block = best_bottom_patch[:osz, :]
 
                         left_right_join, top_bottom_join = lr_bt_join_double(best_right_block, left_block,
-                                                                             best_bottom_block, top_block)
+                                                                             best_bottom_block, top_block, block_size, overlap_size)
                         # join left and right blocks
                         full_lr_join = np.hstack(
                             (target[y1:y2, xa:xb - osz], left_right_join, best_right_patch[:, osz:]))
@@ -318,10 +318,3 @@ def transfer_texture(texture_src, img_target, block_size, overlap_size):
                 y_end = h_new
 
     return target
-
-
-def show_text_trans(img):
-    plt.title('Texture Transfer')
-    plt.imshow(normalize_img(img))
-    plt.axis('off')
-    plt.show()

@@ -19,5 +19,11 @@ target_image = plt.imread('data/bill.jpg').astype(np.float32)
 block_size = 30
 overlap_size = int(block_size / 6)
 
-show_text_trans(transfer_texture(source_texture, target_image, block_size))
+def show_text_trans(img):
+    plt.title('Texture Transfer')
+    plt.imshow(normalize_img(img))
+    plt.axis('off')
+    plt.show()
+
+show_text_trans(transfer_texture(source_texture, target_image, block_size, overlap_size))
 
